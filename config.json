@@ -1,0 +1,12 @@
+{
+    "epochs": 100,
+    "output_dim": 10,
+    "batch_size": 32,
+    "optimizer": "SGD",
+    "device": "cuda",
+    "learning_rate": 0.001,
+    "train_batch_size": 32,
+    "valid_batch_size": 32,
+    "momentum": 0.9,
+    "weight_decay": 0.0001
+}
