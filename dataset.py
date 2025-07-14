@@ -1,6 +1,7 @@
 import json
 import os
 
+from sklearn.preprocessing import MultiLabelBinarizer
 import torch
 from torch.utils.data import Dataset
 from torchvision.io import decode_image
@@ -14,15 +15,10 @@ class VTDs(Dataset):
             self.labels = json.load(f)
             
         with open(classes_path, 'r') as f:
-            idx_to_class = json.load(f)
+            self.all_classes = json.load(f)
 
-        class_to_idx = {}
-        for key, value in idx_to_class.items():
-            if value in class_to_idx:
-                raise ValueError(f"Duplicate class name '{value}' found in class mapping.")
-            class_to_idx[value] = key
+        self.mlb = MultiLabelBinarizer(classes=self.all_classes['classes'])
 
-        self.class_to_idx = class_to_idx
         self.transform = transform
 
     def __len__(self):
@@ -36,12 +32,8 @@ class VTDs(Dataset):
             label_name = self.labels[os.path.basename(image_path.strip())]
         except KeyError:
             raise KeyError(f"No labels found for {os.path.basename(image_path.strip())}")
-        
-        label = []
-        for l in label_name:
-            if l not in self.class_to_idx:
-                raise ValueError(f"Label '{l}' not found in class mapping.")
-            label.append(self.class_to_idx[l])
+
+        label = self.mlb.fit_transform([label_name])
 
         if self.transform:
             image = self.transform(image)
