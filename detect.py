@@ -3,6 +3,7 @@ import json
 
 import torch
 from torchvision.transforms import v2
+from torchvision.io import decode_image
 from PIL import Image, ImageDraw
 import numpy as np
 
@@ -36,12 +37,12 @@ if __name__ == "__main__":
     model.to(device)
     model.eval()
     
-    image = Image.open(input_image).convert("RGB")
+    image = decode_image(input_image)
     transform = v2.Compose([
-        v2.ToImage(),
+        v2.Resize((224, 224)),
         v2.ToDtype(dtype=torch.float32, scale=True),
-        v2.Resize((224, 224))
-        ])
+        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
     image = transform(image).unsqueeze(0).to(device)
 
     with torch.no_grad():
