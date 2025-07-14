@@ -1,11 +1,12 @@
 import argparse
 import json
 
-from matplotlib.font_manager import json_dump
+from cv2 import transform
 import numpy as np
 from sklearn.metrics import accuracy_score, recall_score, precision_score, f1_score, hamming_loss, classification_report
 import torch
 from torch.utils.data import DataLoader
+from torchvision.transforms import v2
 
 from dataset import VTDs
 from model import MultiMobile
@@ -55,26 +56,29 @@ def test(model, dataloader, device, threshold, class_name):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description="Test MultiMobile Model")
 
-    parser.add_argument('--device', type=str, default='cuda', help='Device to run the model on (e.g., "cpu" or "cuda")')
     parser.add_argument('--weight', type=str, default='model.pth', help='Path to save the model weights')
     parser.add_argument('--data', type=str, default='./data.json', help='Path to the dataset file')
+    parser.add_argument('--config', type=str, default='config.json', help='Path to the config file')
     parser.add_argument('--report', type=str, default='report.json', help='Path to save the classification report')
     parser.add_argument('--threshold', type=float, default=0.5, help='Threshold for classification')
-    parser.add_argument('--test_batch_size', type=int, default=32, help='Batch size for testing')
-    parser.add_argument('--output_dim', type=int, default=1000, help='Output dimension for the classifier')
 
     args = parser.parse_args()
-    
-    device = args.device
+
     threshold = args.threshold
     weight_path = args.weight
     data_path = args.data
-    test_batch_size = args.test_batch_size
-    output_dim = args.output_dim
     report_path = args.report
+    config_path = args.config
 
     with open(data_path, 'r') as f:
         data = json.load(f)
+
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+        
+    device = config["device"].lower()
+    test_batch_size = config["test_batch_size"]
+    output_dim = config["output_dim"]
 
     model = MultiMobile(output_dim=output_dim)
     if weight_path:
@@ -86,8 +90,14 @@ if __name__ == '__main__':
     else:
         print("No model weights provided. Starting with uninitialized model.")
     model.to(device)
+    
+    transform = v2.Compose([
+        v2.Resize((224, 224)),
+        v2.ToDtype(dtype=torch.float32, scale=True),
+        v2.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+    ])
 
-    test_dataset = VTDs(data['test'], data['label'], data['classes'], transform=None)
+    test_dataset = VTDs(data['test'], data['label'], data['classes'], transform=transform)
     test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_batch_size, shuffle=False)
     
     with open(data['classes'], 'r') as f:
