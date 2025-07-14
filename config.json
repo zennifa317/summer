@@ -1,7 +1,6 @@
 {
     "epochs": 100,
     "output_dim": 10,
-    "batch_size": 32,
     "optimizer": "SGD",
     "device": "cuda",
     "learning_rate": 0.001,
