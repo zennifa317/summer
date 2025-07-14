@@ -75,8 +75,6 @@ if __name__ == '__main__':
 
     with open(data_path, 'r') as f:
         data = json.load(f)
-        test_data_path = data["test"]
-        class_name = data["class"]
 
     model = MultiMobile(output_dim=output_dim)
     if weight_path:
@@ -88,9 +86,12 @@ if __name__ == '__main__':
     else:
         print("No model weights provided. Starting with uninitialized model.")
     model.to(device)
-    
-    test_dataset = VTDs()
+
+    test_dataset = VTDs(data['test'], data['label'], data['classes'], transform=None)
     test_dataloader = DataLoader(dataset=test_dataset, batch_size=test_batch_size, shuffle=False)
+    
+    with open(data['classes'], 'r') as f:
+        class_name = json.load(f)['classes']
 
     metrics, report  = test(model, test_dataloader, device, threshold, class_name)
     print(f"Accuracy: {metrics['accuracy']:.4f}")
