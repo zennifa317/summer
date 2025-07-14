@@ -1,5 +1,6 @@
 import argparse
 import json
+import os
 
 import torch
 import torch.nn as nn
@@ -9,6 +10,7 @@ import matplotlib.pyplot as plt
 
 from model import MultiMobile
 from dataset import VTDs
+from utils import create_versioned_dir
 
 def train(model, dataloader, criterion, optimizer, device):
     model.train()
@@ -67,16 +69,26 @@ def plot_losses(train_losses, valid_losses, epochs):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Train MultiMobile Model")
 
-    parser.add_argument('--weight', type=str, default=None, help='Path to save the model weights')
+    parser.add_argument('--weight', type=str, default=None, help='Path to fine-tuned model weights')
     parser.add_argument('--config', type=str, default='config.json', help='Path to the config file')
-    parser.add_argument('--data', type=str, default='data.json', help='Path to the dataset file')
+    parser.add_argument('--data', type=str, default='./data/data.json', help='Path to the dataset file')
+    parser.add_argument('--output', type=str, default='exp', help='Path to the output folder')
 
     args = parser.parse_args()
 
     weight_path = args.weight
     config_path = args.config
     data_path = args.data
-    
+    output_name = args.output
+
+    if not os.path.exists('./train'):
+        os.mkdir('./train')
+
+    output_path = create_versioned_dir(base_name=output_name, dir="./train")
+
+    if not os.path.exists(output_path):
+        os.mkdir(output_path)
+
     with open(config_path, 'r') as f:
         config = json.load(f)
 
@@ -89,6 +101,9 @@ if __name__ == "__main__":
     optimizer_type = config["optimizer"].lower()
     momentum = config["momentum"]
     weight_decay = config["weight_decay"]
+
+    with open(data_path, 'r') as f:
+        data = json.load(f)
 
     print(f'Using device: {device}')
 
@@ -111,11 +126,13 @@ if __name__ == "__main__":
         optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
     else:
         raise ValueError(f"Unknown optimizer type: {optimizer_type}")
-    
-    train_dataset = VTDs()
+
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=epochs, eta_min=0.0)
+
+    train_dataset = VTDs(data['train'], data['label'], data['classes'], transform=None)
     train_dataloader = DataLoader(dataset=train_dataset, batch_size=train_batch_size, shuffle=True)
 
-    valid_dataset = VTDs()
+    valid_dataset = VTDs(data['valid'], data['label'], data['classes'], transform=None)
     valid_dataloader = DataLoader(dataset=valid_dataset, batch_size=valid_batch_size, shuffle=False)
 
     train_losses = []
@@ -124,6 +141,7 @@ if __name__ == "__main__":
     for epoch in tqdm(range(epochs)):
         train_loss = train(model, train_dataloader, criterion, optimizer, device)
         valid_loss = validate(model, valid_dataloader, criterion, device)
+        scheduler.step()
 
         train_losses.append(train_loss)
         valid_losses.append(valid_loss)
@@ -132,4 +150,4 @@ if __name__ == "__main__":
 
     plot_losses(train_losses, valid_losses, epochs)
     torch.save(model.state_dict(), weight_path)
-    print(f"Model weights saved to {weight_path}") 
+    print(f"Model weights saved to {weight_path}")
